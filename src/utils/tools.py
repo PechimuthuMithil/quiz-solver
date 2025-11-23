@@ -31,6 +31,8 @@ def cleanup_memory():
 # Clean up all files in memory directory
 	memory_dir = "memory"
 	for filename in os.listdir(memory_dir):
+		if filename == ".gitkeep":
+			continue
 		file_path = os.path.join(memory_dir, filename)
 		try:
 			if os.path.isfile(file_path) or os.path.islink(file_path):

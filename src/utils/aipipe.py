@@ -44,7 +44,7 @@ def query_orchestrator(instructions: str, user_input: str, tools: list[Dict[str,
             return fin_resp
 
         except Exception as e:
-            print(f"[DEBUG] Exception while querying GPT: {e}")
+            print(f"[DEBUG] Exception while querying orchestrator: {e}")
             retry_count += 1
             time.sleep(backoff_factor ** retry_count)
 

@@ -145,8 +145,9 @@ def solve_task_with_llm(task_url, email, secret):
        - Requirements must be a list of strings.
        - Code MUST print the final result to stdout.
     7. When the result is known, call submit_answer exactly once with the final answer.
-    8. The final answer must be concise and directly address the task. DON'T include the JSON payload as the answer.
-    9. Sometimes all you might need to do is extract submit URL and call submit_answer directly with any answer. Do it!
+    8. The final answer usually is a single string or number. DON'T include the JSON payload as the answer.
+    9. When calling submit_answer, the "answer" field must contain ONLY the final answer as a string, NOT a JSON object or payload.
+    10. Sometimes all you might need to do is extract submit URL and call submit_answer directly with any answer. Do it!
 
     Batching rule:
     - If multiple URLs need to be fetched or multiple files must be processed, call multiple tools in one response.
