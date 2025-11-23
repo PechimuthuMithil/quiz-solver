@@ -1,5 +1,4 @@
 .venv
-memory/*
 models
 *__pycache__
 *.json
