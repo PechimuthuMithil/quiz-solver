@@ -1,0 +1,11 @@
+.venv
+memory/*
+models
+*__pycache__
+*.json
+find_models.py
+install_script.sh
+setup.py
+important.txt
+*.egg-info
+*__init__.py
