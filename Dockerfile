@@ -1,43 +1,63 @@
-# ----- Base Image -----
-FROM ubuntu:20.04
+# ------------------------------
+# Base Image (Python 3.11)
+# ------------------------------
+FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UV_SYSTEM_PYTHON=1
 
-# ----- Install OS dependencies -----
-RUN apt-get update && apt-get install -y \
+# ------------------------------
+# System Dependencies
+# ------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
-    python3 \
-    python3-pip \
-    python3-venv \
     build-essential \
-    && apt-get clean
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libxshmfence1 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# ----- Install UV -----
+# ------------------------------
+# Install uv
+# ------------------------------
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Add UV to PATH
 ENV PATH="/root/.local/bin:${PATH}"
 
-# ----- Setup working directory -----
+# ------------------------------
+# Working Directory
+# ------------------------------
 WORKDIR /app
-
-# ----- Copy application -----
 COPY . /app
 
-# ----- Create virtual environment -----
+# ------------------------------
+# Python Dependencies
+# ------------------------------
 RUN uv venv
+RUN uv pip install --no-cache-dir -r requirements.txt
 
-# Install Python dependencies
-RUN uv pip install -r requirements.txt
-
-# ----- Install playwright -----
+# ------------------------------
+# Playwright Install
+# ------------------------------
 RUN playwright install-deps
 RUN playwright install
 
-# ----- Expose API port -----
+# ------------------------------
+# Expose API Port
+# ------------------------------
 EXPOSE 8000
 
-# ----- Start the app -----
+# ------------------------------
+# Start FastAPI App
+# ------------------------------
 CMD ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
