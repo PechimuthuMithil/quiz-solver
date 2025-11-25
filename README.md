@@ -16,7 +16,8 @@ We need to send a very optimized prompt asking the model to batch tool calls so 
 
 [TODO] Handle retries of failed function calls. Somehow pass it the error too, so that it can correct itself.
 [TODO] Test for images
-
+[TODO] Add some emailing features to send the Task recived as an email.
+[TODO] Secret should be taken as a deployment secret. 
 ,
         {
             "type": "function",

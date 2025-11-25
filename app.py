@@ -2,11 +2,11 @@ from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel, ValidationError
 from src.tasks.solve import solve_task_with_llm
 import threading
+import os
 
 app = FastAPI()
 
-# Define the secret that will be used for validation
-SECRET_KEY = "6969"
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # Global flag to track if a task is running
 task_running = threading.Lock()
