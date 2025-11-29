@@ -27,7 +27,7 @@ def query_orchestrator(instructions: str, user_input: str, tools: list[Dict[str,
                     "tools": tools,
                     "tool_choice": "auto",
                 },
-                timeout=30.0
+                timeout=60.0
             )
 
             print(f"[DEBUG] LLM response: {response}")
@@ -39,8 +39,8 @@ def query_orchestrator(instructions: str, user_input: str, tools: list[Dict[str,
 
             fin_resp = response.json().get("choices", [{}])[0].get("message", {})
             if fin_resp == {}:
-                print("[DEBUG] Empty response from LLM, returning dummy response")
-                return {'role': 'assistant', 'content': None, 'tool_calls': [{'id': 'call_M1uP7hSHdFMMhvcXGrdGA2VX', 'type': 'function', 'function': {'name': 'submit_answer', 'arguments': '{"submit_url":"https://tds-llm-analysis.s-anand.net/submit","answer":"dummy_answer"}'}}], 'refusal': None, 'annotations': []}
+                print("[DEBUG] Empty response from LLM, returning FAILED")
+                return "FAILED"
             return fin_resp
 
         except Exception as e:
@@ -48,8 +48,8 @@ def query_orchestrator(instructions: str, user_input: str, tools: list[Dict[str,
             retry_count += 1
             time.sleep(backoff_factor ** retry_count)
 
-    print("[DEBUG] Max retries reached. Returning dummy response.")
-    return {'role': 'assistant', 'content': None, 'tool_calls': [{'id': 'call_M1uP7hSHdFMMhvcXGrdGA2VX', 'type': 'function', 'function': {'name': 'submit_answer', 'arguments': '{"submit_url":"https://tds-llm-analysis.s-anand.net/submit","answer":"dummy_answer"}'}}], 'refusal': None, 'annotations': []}
+    print("[DEBUG] Max retries reached. Returning FAILED")
+    return "FAILED"
 
 
 def query_image_processor(image_url: str, prompt: str):
@@ -60,7 +60,7 @@ def query_image_processor(image_url: str, prompt: str):
     while retry_count < max_retries:
         try:
             payload = {
-                "model": "",
+                "model": "openai/gpt-5.1-codex-mini",
                 "messages": [
                     {
                         "role": "system",
@@ -71,13 +71,13 @@ def query_image_processor(image_url: str, prompt: str):
                     {
                         "role": "user",
                         "content": [
-                            {"type": "input_image", "input_image": {"url": image_url}}
+                            {"type": "image_url", "image_url": {"url": image_url}}
                         ]
                     }
                 ]
             }
             response = httpx.post(
-                "https://aipipe.org/openai/v1/chat/completions",
+                "https://aipipe.org/openrouter/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {os.getenv('AIPIPE_TOKEN')}",
                     "Content-Type": "application/json",

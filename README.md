@@ -18,6 +18,10 @@ We need to send a very optimized prompt asking the model to batch tool calls so 
 [TODO] Test for images
 [TODO] Add some emailing features to send the Task recived as an email.
 [TODO] Secret should be taken as a deployment secret. 
+[TODO] Github token also a deployment secret.
+[TODO] Add instruction to say that, if the model feels this task is not feasible with the given set of tools, and after one trial, then submit a  dummy anser and move to next.
+[TODO] Add a model to update the query given to orchestrator
+[TODO] Need to tell model that only memory directory is where it can store and access files.
 ,
         {
             "type": "function",
@@ -38,3 +42,5 @@ We need to send a very optimized prompt asking the model to batch tool calls so 
                 "strict": True
             }
         }
+
+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

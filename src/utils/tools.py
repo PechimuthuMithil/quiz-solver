@@ -27,6 +27,7 @@ import base64
 import sys
 import os
 
+
 def cleanup_memory():
 # Clean up all files in memory directory
 	memory_dir = "memory"
@@ -178,7 +179,7 @@ def submit_answer(email, secret, task_url, submit_url, answer):
 	headers = {
 		"Content-Type": "application/json"
 	}
-	response = requests.post(submit_url, json=payload, headers=headers)
+	response = requests.post(submit_url, json=payload, headers=headers, timeout=30)
 	if response.status_code == 200:
 		print("[DEBUG] Answer submitted successfully.")
 		print("[DEBUG] Response:", response.json())
@@ -186,13 +187,15 @@ def submit_answer(email, secret, task_url, submit_url, answer):
 		response_json = response.json()
 		if response_json.get("correct", False):
 			print("[DEBUG] The submitted answer is correct!")
+			return True, "", response_json.get("url", None)
 		else:
 			print("[DEBUG] The submitted answer is incorrect.")
 			print("[DEBUG] Reason:", response_json.get("reason", ""))
+			return False, response_json.get("reason", ""), response_json.get("url", None)
 	else:
 		print("[DEBUG] Failed to submit answer. Status code:", response.status_code)
-		print("Response:", response.text)
-	return response_json.get("url", None)
+		return False, f"HTTP {response.status_code}", None
+
 	# [TODO] set some global variable if needed to indicate submission status
 # print("Testing submit_answer function")
 # email = "dummy"
@@ -281,7 +284,7 @@ builtins.open = restricted_open
     return stdout, stderr
 # print("Testing execute_python_code function")
 # test_requirements = ["requests","numpy"]
-# test_code = """with open('/home/test_output.txt', 'w') as f:\tf.write('This is a test output file.')"""
+# test_code = """with open('memory/test_output.txt', 'w') as f:\tf.write('This is a test output file.')"""
 # stdout, stderr = execute_python_code(test_requirements, test_code)
 # print("STDOUT:\n", stdout)
 # print("STDERR:\n", stderr)
@@ -309,7 +312,7 @@ def get_image_as_base64_url(url):
 
 def analyse_image_to_text(url, question): # [TODO] Fix!
 	instructions = (
-		"You are an expoert image analyst."
+		"You are an expert image analyst."
 		"You are to thoroughly understand the image attached via the URL, and answer ONLY the following question below based on the image content:"
 		f"{question}"
 		"Strictly return ONLY the answer without any additional text."
@@ -322,9 +325,9 @@ def analyse_image_to_text(url, question): # [TODO] Fix!
 			return ""
 		url = base64_url
 	response = aipipe.query_image_processor(url, instructions)
-	return response
+	return response.get("choices", [{}])[0].get("message", {}).get("content", "")
 # print("Testing analyse_image_to_text function")
-# test_url = "file:///home/mithilpn/iitm/tds/p2/test/00000.jpg"
+# test_url = "file:///home/mithilpn/iitm/tds/p2/test/bananas.jpg"
 # # test_url = "file:///home/mithilpn/iitm/tds/p2/test/some_images2.png"
 # print("Test URL:", test_url)
 # response = analyse_image_to_text(test_url, "What is this image?")
@@ -369,26 +372,202 @@ def process_audio_url(url, question=""):
 # response = process_audio_url(test_url, "What is the gender of the speaker?")
 # print("Response:", response)
 
-def generate_image_from_text(prompt): # [TODO] Fix!
-	instructions = (
-		"You are an expert image generator.\n"
-		"Generate a the best describing image based on the following prompt:\n"
-		f"{prompt}\n\n"
-		"Return output as a base64-encoded image URL string."
-		"Strictly return ONLY the base64 URL string."
-	)
-	response = aipipe.query_image_generator(instructions)
-	print("Response:", response)
-	image_base64 =  response.get("choices", [{}])[0].get("message", {}).get("content", "")
-	# convert image to file
-	image_data = image_base64.split(",")[1] if "," in image_base64 else image_base64
-	image_bytes = base64.b64decode(image_data)
-	temp_name = tempfile.NamedTemporaryFile(delete=False, suffix="." + image_base64.split(";")[0].split("/")[1] if ";" in image_base64 else "png")
-	image_path = os.path.join("memory", os.path.basename(temp_name.name))
-	with open(image_path, "wb") as img_file:
-		img_file.write(image_bytes)
-	return image_path
+# def generate_image_from_text(prompt): # [TODO] Fix!
+# 	instructions = (
+# 		"You are an expert image generator.\n"
+# 		"Generate a the best describing image based on the following prompt:\n"
+# 		f"{prompt}\n\n"
+# 		"Return output as a base64-encoded image URL string."
+# 		"Strictly return ONLY the base64 URL string."
+# 	)
+# 	response = aipipe.query_image_generator(instructions)
+# 	print("Response:", response)
+# 	image_base64 =  response.get("choices", [{}])[0].get("message", {}).get("content", "")
+# 	# convert image to file
+# 	image_data = image_base64.split(",")[1] if "," in image_base64 else image_base64
+# 	image_bytes = base64.b64decode(image_data)
+# 	temp_name = tempfile.NamedTemporaryFile(delete=False, suffix="." + image_base64.split(";")[0].split("/")[1] if ";" in image_base64 else "png")
+# 	image_path = os.path.join("memory", os.path.basename(temp_name.name))
+# 	with open(image_path, "wb") as img_file:
+# 		img_file.write(image_bytes)
+# 	return image_path
 # print("Testing generate_image_from_text function")
 # test_prompt = "A beautiful sunrise over the mountains with a river flowing through a forest."
 # image_path = generate_image_from_text(test_prompt)
 # print("Generated image saved at:", image_path)
+
+def save_contents_to_file(contents, filename, encoding="utf-8"):
+    """
+    Save `contents` (str, bytes, or data URL) to memory/<filename>.
+    - If `contents` is bytes/bytearray -> write binary.
+    - If `contents` is a data URL (data:...;base64,...) -> decode and write binary.
+    - If `contents` is str -> write text with given encoding.
+    Returns absolute path on success or (-1, "error message") on failure.
+    """
+    try:
+        memory_dir = os.path.abspath("memory")
+        os.makedirs(memory_dir, exist_ok=True)
+
+        # Resolve target path and prevent path traversal
+        target_path = os.path.abspath(os.path.join(memory_dir, filename))
+        if not (target_path == memory_dir or target_path.startswith(memory_dir + os.sep)):
+            return (-1, "Invalid filename: path outside memory/ is not allowed")
+
+        parent = os.path.dirname(target_path)
+        os.makedirs(parent, exist_ok=True)
+
+        # Determine write mode and payload bytes/text
+        payload_bytes = None
+        write_binary = False
+
+        if isinstance(contents, (bytes, bytearray)):
+            payload_bytes = bytes(contents)
+            write_binary = True
+        elif isinstance(contents, str):
+            # Handle data URL: data:[<mediatype>][;base64],<data>
+            if contents.startswith("data:") and ", " not in contents:
+                try:
+                    header, b64 = contents.split(",", 1)
+                    if ";base64" in header:
+                        payload_bytes = base64.b64decode(b64)
+                        write_binary = True
+                    else:
+                        # percent-decoded text
+                        payload_bytes = b64.encode(encoding)
+                        write_binary = True
+                except Exception:
+                    # fallback to writing raw string
+                    payload_bytes = None
+                    write_binary = False
+            else:
+                # Plain string: write as text
+                payload_bytes = None
+                write_binary = False
+        else:
+            return (-1, f"Unsupported contents type: {type(contents)}")
+
+        # Atomic write: write to temp file in same dir, then replace
+        if write_binary:
+            with tempfile.NamedTemporaryFile(delete=False, dir=parent) as tmp:
+                tmp.write(payload_bytes)
+                tmp_path = tmp.name
+            os.replace(tmp_path, target_path)
+        else:
+            with tempfile.NamedTemporaryFile(mode="w", delete=False, dir=parent, encoding=encoding) as tmp:
+                tmp.write(contents)
+                tmp_path = tmp.name
+            os.replace(tmp_path, target_path)
+
+        print(f"[DEBUG] Contents saved to file: {target_path}")
+        return target_path
+    except Exception as e:
+        err = str(e)
+        print(f"[ERROR] Failed to save contents to file {filename}: {err}")
+        return (-1, err)
+	
+
+
+def publish_to_github_pages():
+    """
+    Publish contents of memory/ to a newly created GitHub repo's gh-pages branch.
+    - No parameters.
+    - Uses GITHUB_TOKEN env var.
+    - Creates a repo named "quiz-solver-gh-page-deployment-<N>" where N starts at 1
+      and increments until a free name is found (up to 100 attempts).
+    Returns (True, pages_url) on success, or (False, error_msg) on failure.
+    [TODO] Add feature to test if the index.html works locally...
+    """
+    try:
+        token = os.getenv("GITHUB_TOKEN")
+        if not token:
+            return (False, "GITHUB_TOKEN environment variable must be set")
+
+        source_dir = "memory"
+        branch = "gh-pages"
+        base_name = "quiz-solver-gh-page-deployment"
+
+        if not os.path.isdir(source_dir):
+            return (False, f"Source directory not found: {source_dir}")
+
+        # Get authenticated user login
+        headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+        user_resp = requests.get("https://api.github.com/user", headers=headers)
+        if user_resp.status_code != 200:
+            return (False, f"Failed to get authenticated user: {user_resp.status_code} {user_resp.text}")
+        username = user_resp.json().get("login")
+        if not username:
+            return (False, "Could not determine authenticated GitHub username")
+
+        # Try creating repositories with increasing numeric suffixes
+        repo_name = None
+        for i in range(1, 101):
+            candidate = f"{base_name}-{i}"
+            payload = {"name": candidate, "private": False, "auto_init": False}
+            create_resp = requests.post("https://api.github.com/user/repos", headers=headers, json=payload)
+            if create_resp.status_code == 201:
+                repo_name = candidate
+                break
+            # If name already exists, try next; otherwise return error
+            try:
+                err_json = create_resp.json()
+                msg = (err_json.get("message") or "").lower()
+                errors = err_json.get("errors") or []
+                name_exists = (
+                    create_resp.status_code == 422 and
+                    ("name already exists" in msg or any(
+                        ("name already exists" in (e.get("message") or "").lower()) if isinstance(e, dict) else False
+                        for e in errors
+                    ))
+                )
+                if name_exists:
+                    continue
+            except Exception:
+                pass
+            return (False, f"GitHub API error creating repo '{candidate}': {create_resp.status_code} {create_resp.text}")
+
+        if not repo_name:
+            return (False, "Failed to create a unique repository name after 100 attempts")
+
+        repo_full = f"{username}/{repo_name}"
+
+        tmpdir = tempfile.mkdtemp(prefix="gh-pages-")
+        try:
+            # init repo
+            subprocess.run(["git", "init"], cwd=tmpdir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            subprocess.run(["git", "config", "user.name", "gh-pages-bot"], cwd=tmpdir, check=True)
+            subprocess.run(["git", "config", "user.email", "gh-pages-bot@example.com"], cwd=tmpdir, check=True)
+            subprocess.run(["git", "checkout", "-B", branch], cwd=tmpdir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            # clear tmpdir except .git
+            for name in os.listdir(tmpdir):
+                if name == ".git":
+                    continue
+                path = os.path.join(tmpdir, name)
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+
+            # copy source_dir contents into tmpdir
+            for item in os.listdir(source_dir):
+                s = os.path.join(source_dir, item)
+                d = os.path.join(tmpdir, item)
+                if os.path.isdir(s):
+                    shutil.copytree(s, d)
+                else:
+                    shutil.copy2(s, d)
+
+            repo_url = f"https://x-access-token:{token}@github.com/{repo_full}.git"
+            subprocess.run(["git", "add", "."], cwd=tmpdir, check=True)
+            subprocess.run(["git", "commit", "-m", "Publish visualization to GitHub Pages"], cwd=tmpdir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            subprocess.run(["git", "remote", "add", "origin", repo_url], cwd=tmpdir, check=True)
+            subprocess.run(["git", "push", "--set-upstream", "origin", branch, "--force"], cwd=tmpdir, check=True)
+        finally:
+            shutil.rmtree(tmpdir)
+
+        pages_url = f"https://{username}.github.io/{repo_name}/"
+        return (True, pages_url)
+    except subprocess.CalledProcessError as e:
+        return (False, f"Git error: {e}")
+    except Exception as e:
+        return (False, str(e))
