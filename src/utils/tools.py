@@ -118,42 +118,46 @@ def get_html_content(url):
 # I want to also unwrap any hype.rlinks to get full URLs.
 # After reaging https://scrapfly.io/blog/posts/scraping-using-browsers,
 # I feel using Playwright is a better option for this task.
-	html = "" 
-	with sync_playwright() as pw:
-		browser = pw.chromium.launch(headless=True)
-		print("[DEBUG] Browser launched")
-		page = browser.new_page()
-		print("[DEBUG] New page created")
-		page.goto(url)
-		print("[DEBUG] Navigated to URL:", url)
-		 # Resolve all relative URLs to absolute URLs in the DOM
-		page.evaluate("""
-		() => {
-			const resolveUrl = (base, relative) => new URL(relative, base).href;
+	try:
+		html = "" 
+		with sync_playwright() as pw:
+			browser = pw.chromium.launch(headless=True)
+			print("[DEBUG] Browser launched")
+			page = browser.new_page()
+			print("[DEBUG] New page created")
+			page.goto(url)
+			print("[DEBUG] Navigated to URL:", url)
+			# Resolve all relative URLs to absolute URLs in the DOM
+			page.evaluate("""
+			() => {
+				const resolveUrl = (base, relative) => new URL(relative, base).href;
 
-			// Resolve all <a> href attributes
-			document.querySelectorAll('a[href]').forEach(a => {
-				a.setAttribute('href', resolveUrl(window.location.href, a.getAttribute('href')));
-			});
+				// Resolve all <a> href attributes
+				document.querySelectorAll('a[href]').forEach(a => {
+					a.setAttribute('href', resolveUrl(window.location.href, a.getAttribute('href')));
+				});
 
-			// Resolve all <audio> src attributes
-			document.querySelectorAll('audio[src]').forEach(audio => {
-				audio.setAttribute('src', resolveUrl(window.location.href, audio.getAttribute('src')));
-			});
+				// Resolve all <audio> src attributes
+				document.querySelectorAll('audio[src]').forEach(audio => {
+					audio.setAttribute('src', resolveUrl(window.location.href, audio.getAttribute('src')));
+				});
 
-			// Resolve other elements with src attributes (e.g., <img>, <video>, etc.)
-			document.querySelectorAll('[src]').forEach(el => {
-				el.setAttribute('src', resolveUrl(window.location.href, el.getAttribute('src')));
-			});
-		}
-		""")
-		print("[DEBUG] Resolved relative URLs to absolute URLs")
+				// Resolve other elements with src attributes (e.g., <img>, <video>, etc.)
+				document.querySelectorAll('[src]').forEach(el => {
+					el.setAttribute('src', resolveUrl(window.location.href, el.getAttribute('src')));
+				});
+			}
+			""")
+			print("[DEBUG] Resolved relative URLs to absolute URLs")
 
 
-		html = page.content()
-		print("[DEBUG] HTML content retrieved")
-		browser.close()
-	return html
+			html = page.content()
+			print("[DEBUG] HTML content retrieved")
+			browser.close()
+		return html
+	except Exception as e:
+		print(f"[ERROR] Failed to fetch HTML content from {url}: {e}")
+		return f"Failed to fetch HTML content from {url}: {e}"
 # print("Testing get_html_content function")
 # test_url = "https://tds-llm-analysis.s-anand.net/demo-audio?email=21f3001995%40ds.study.iitm.ac.in&id=3727"
 # html_content = get_html_content(test_url)
@@ -168,33 +172,48 @@ def submit_answer(email, secret, task_url, submit_url, answer):
 #   "url": task_url,
 #   "answer": answer
 # }
-	# task url can have query parameters etc, need to remove it
-	task_url = task_url.split('?')[0]
-	payload = {
-		"email": email,
-		"secret": secret,
-		"url": task_url,
-		"answer": answer
-	}
-	headers = {
-		"Content-Type": "application/json"
-	}
-	response = requests.post(submit_url, json=payload, headers=headers, timeout=30)
-	if response.status_code == 200:
-		print("[DEBUG] Answer submitted successfully.")
-		print("[DEBUG] Response:", response.json())
-		# check if the answer was correct
-		response_json = response.json()
-		if response_json.get("correct", False):
-			print("[DEBUG] The submitted answer is correct!")
-			return True, "", response_json.get("url", None)
+
+	# sometimes answeris coming as a JSON payload with the final answer inside it.
+    # Extract only the final answer if so. But th eanswer is usally a string of JSON
+    # '{"email": "21f3001995@ds.study.iitm.ac.in", "secret": "your secret", "url": "https://tds-llm-analysis.s-anand.net/demo-scrape?email=21f3001995%40ds.study.iitm.ac.in&id=34636", "answer": "56090"}'
+	try:
+		try:
+			answer_dict = eval(answer)
+			if isinstance(answer_dict, dict) and "answer" in answer_dict:
+				answer = answer_dict["answer"]
+		except:
+			pass
+
+		# task url can have query parameters etc, need to remove it
+		task_url = task_url.split('?')[0]
+		payload = {
+			"email": email,
+			"secret": secret,
+			"url": task_url,
+			"answer": answer
+		}
+		headers = {
+			"Content-Type": "application/json"
+		}
+		response = requests.post(submit_url, json=payload, headers=headers, timeout=30)
+		if response.status_code == 200:
+			print("[DEBUG] Answer submitted successfully.")
+			print("[DEBUG] Response:", response.json())
+			# check if the answer was correct
+			response_json = response.json()
+			if response_json.get("correct", False):
+				print("[DEBUG] The submitted answer is correct!")
+				return True, "", response_json.get("url", None)
+			else:
+				print("[DEBUG] The submitted answer is incorrect.")
+				print("[DEBUG] Reason:", response_json.get("reason", ""))
+				return False, response_json.get("reason", ""), response_json.get("url", None)
 		else:
-			print("[DEBUG] The submitted answer is incorrect.")
-			print("[DEBUG] Reason:", response_json.get("reason", ""))
-			return False, response_json.get("reason", ""), response_json.get("url", None)
-	else:
-		print("[DEBUG] Failed to submit answer. Status code:", response.status_code)
-		return False, f"HTTP {response.status_code}", None
+			print("[DEBUG] Failed to submit answer. Status code:", response.status_code)
+			return False, f"HTTP {response.status_code}", None
+	except Exception as e:
+		print(f"[ERROR] Exception while submitting answer: {e}")
+		return False, str(e), None
 
 	# [TODO] set some global variable if needed to indicate submission status
 # print("Testing submit_answer function")
@@ -463,7 +482,7 @@ def save_contents_to_file(contents, filename, encoding="utf-8"):
     except Exception as e:
         err = str(e)
         print(f"[ERROR] Failed to save contents to file {filename}: {err}")
-        return (-1, err)
+        return err
 	
 
 

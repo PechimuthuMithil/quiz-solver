@@ -216,7 +216,7 @@ def solve_task_with_llm(task_url, email, secret):
        - Do NOT call publish_to_github_pages until you have saved the files you want to host.
     8. When the result is known, call submit_answer exactly once with the final answer.
     9. The final answer usually is a single string or number. DON'T include the JSON payload as the answer.
-    10. When calling submit_answer, the "answer" field must contain ONLY the final answer as a string, NOT a JSON object or payload.
+    10. When calling submit_answer, the "answer" field must contain ONLY the final answer, NOT a JSON payload.
     11. Sometimes all you might need to do is extract submit URL and call submit_answer directly with any answer. Do it!
     12. USE analyse_image_to_text FOR ANY IMAGE ANALYSIS TASKS.
     13. Try to maximize the number of tool calls in one response to speed up solving.
@@ -233,7 +233,7 @@ def solve_task_with_llm(task_url, email, secret):
     last_successful_submission_url = None
     last_successful_submission_answer = None
     MAX_ITERATIONS = 20
-    tries_left = 2
+    tries_left = 3
     start_time = time.time()
     print(f"[TASK START] Solving task for URL: {task_url}")
     while i < MAX_ITERATIONS and (time.time() - start_time) < 180:
