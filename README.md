@@ -1,46 +1,52 @@
-## Idea 1:
-Parse website, download all content and source such that we can host it locally using wget. Then send it in one query to llm and ask answer.
+# Quiz Solver (TDS P2)
 
-## Idea 2:
-Make function for simple tasks like
-- Getting html source from url.
-- Downloading and transcribing specified audio file from url. (Transcribing is required as LLM models don't support audio as input modality.)
-- Downloading a file from url. (Also get some metadata)
-- Executing python code given requirements and source code. (We might need this
-as for a task like, sum the first column of the attached CSV, and if there's a high chance that the file is very large, attaching it to the query can waste tokens, instead, asking the llm to give a program to execute would be better. Also some tasks that are expected of the model seems like it requires code execution. This has to be carefully managed as the code given first time might not execute, we might have to do some iterations by giving the model the traceback or error.)
-- Submit answer by a POST request to a url in a predetermined format.
+Small toolset to fetch/render web tasks, extract assets (audio/images/files), run bounded Python snippets, analyze media, and optionally publish visualizations to GitHub Pages.
 
-Once we have such functions, we can use Openai model's function/tool calling features in a loop (bound by time, number of api calls etc) to get answer. If no answer found before loop terminates, then give up. move to next question.
+Quick overview
+- Core utilities: src/utils/tools.py — helpers for Playwright rendering, download, audio/image processing, executing isolated Python, saving files, and publishing.
+- Orchestration: src/tasks/solve.py — uses an LLM orchestrator (via src/utils/aipipe) and the tools to iteratively solve tasks.
+- Test page: test/index.html — minimal page used for local render/testing.
 
-We need to send a very optimized prompt asking the model to batch tool calls so as to have the least to and fro between our endpoint and the model. The functions should also be defined with succinct description. We have to also ask the model to use executing python fucntion tool only when required and provide the requirements as a list and the python code also as a single line of syntactically correct code if possible to reduce tokens.The code also should be such that after execution it should store the answer in an OS environemt variable called TDS_ANSWER, traceback in TDS_TRACEBACK and execution status in TDS_EXEC_STATUS. Or just print the output, capture stdout and stderr.
+Prerequisites
+- Python 3.8+
+- System packages for audio/image processing (ffmpeg for pydub)
+- Node/browser dependencies for Playwright: run `playwright install` after installing Python deps
 
-[TODO] Handle retries of failed function calls. Somehow pass it the error too, so that it can correct itself.
-[TODO] Test for images
-[TODO] Add some emailing features to send the Task recived as an email.
-[TODO] Secret should be taken as a deployment secret. 
-[TODO] Github token also a deployment secret.
-[TODO] Add instruction to say that, if the model feels this task is not feasible with the given set of tools, and after one trial, then submit a  dummy anser and move to next.
-[TODO] Add a model to update the query given to orchestrator
-[TODO] Need to tell model that only memory directory is where it can store and access files.
-,
-        {
-            "type": "function",
-            "function": {
-                "name": "get_image_as_base64_url",
-                "description": "Attaches the image from the given URL as a base64 encoded data URL string to the prompt",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string",
-                            "description": "URL of the image to convert to a base64 encoded data URL string"
-                        },
-                    },
-                    "required": ["url"],
-                    "additionalProperties": False
-                },
-                "strict": True
-            }
-        }
+Install
+1. Create and activate a virtualenv (recommended)
+2. pip install -r requirements.txt
+3. Install Playwright browsers:
+   - python -m playwright install
 
-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
+Environment
+- GITHUB_TOKEN — required if you want publish_to_github_pages() to create/push a repo and enable GitHub Pages.
+- (Optional) Any other secrets used by src/utils/aipipe must be set in the environment as used by that module.
+
+Run / Usage
+- The orchestrator expects an LLM integration accessible via src/utils/aipipe.
+- Example invocation (from repo root):
+  - Import and call solve_task_with_llm(task_url, email, secret) in a small runner or Python REPL.
+- For local testing use file:// URLs to pages in test/ (e.g., file://<repo>/test/index.html).
+
+Testing the static preview
+- test/index.html is a minimal page that asks the user to "Describe the image".
+- The codebase contains a best-effort Playwright render check before publishing gh-pages; Playwright must be available for that check to run.
+
+Important notes / security
+- execute_python_code installs requested packages into an isolated temp target and runs user code with a timeout and restricted file writes (redirected into memory/). This is not a perfect sandbox — review before running untrusted code.
+- save_contents_to_file writes only under memory/ (path traversal prevented).
+- publish_to_github_pages will create a public repository in the authenticated user's account; ensure GITHUB_TOKEN scope is appropriate.
+- Playwright check for index.html is best-effort and may produce false positives for pages expecting network services or auth.
+
+Files of interest
+- src/utils/tools.py — main helper functions (rendering, downloads, media handling, publishing)
+- src/tasks/solve.py — orchestrates LLM tool-calls and manages the loop & submission logic
+- test/index.html — small test page to validate rendering and image description flow
+
+How to contribute
+- Create a branch, keep changes minimal, add tests where appropriate, and open a PR.
+- Document any new tool function in src/tasks/solve.py tools array (so orchestrator can call it).
+
+Further reading
+- See README-Development.md for notes and TODOs maintained by the project.
+- See VIVA_Questions.md for a list of viva/practice questions about this repository.
