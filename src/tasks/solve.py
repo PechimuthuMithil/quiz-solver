@@ -201,7 +201,7 @@ def solve_task_with_llm(task_url, email, secret):
     Task rules:
     1. Parse the task from the provided HTML.
     2. Extract all needed URLs correctly (HTML, file URLs, audio URLs).
-    3. Use get_html_content to fetch additional webpages.
+    3. Use get_html_content to fetch additional HTML webpages only.
     4. Use download_file_from_url only for files (CSV, PDF, text, image, etc.).
     5. For audio files: NEVER download them. Use process_audio_url to get transcription. If ABSOLUTELY NEEDED, provide a specific question to process_audio_url to get targeted info.
     6. For any file processing, prefer execute_python_code:
@@ -219,9 +219,7 @@ def solve_task_with_llm(task_url, email, secret):
     10. When calling submit_answer, the "answer" field must contain ONLY the final answer as a string, NOT a JSON object or payload.
     11. Sometimes all you might need to do is extract submit URL and call submit_answer directly with any answer. Do it!
     12. USE analyse_image_to_text FOR ANY IMAGE ANALYSIS TASKS.
-
-    Batching rule:
-    - If multiple URLs need to be fetched or multiple files must be processed, call multiple tools in one response.
+    13. Try to maximize the number of tool calls in one response to speed up solving.
 
     Task URL: {task_url}
 
