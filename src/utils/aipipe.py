@@ -22,7 +22,7 @@ def query_orchestrator(instructions: str, user_input: str, tools: list[Dict[str,
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "x-ai/grok-4.1-fast",
+                    "model": "x-ai/grok-4.1-fast", # x-ai/grok-4.1-fast deepseek/deepseek-v3.2-exp openai/gpt-oss-20b:free kwaipilot/kat-coder-pro:free tngtech/tng-r1t-chimera:free arcee-ai/trinity-mini:free
                     "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": [{"type": "text", "text": user_input}]}],
                     "tools": tools,
                     "tool_choice": "auto",
@@ -30,7 +30,7 @@ def query_orchestrator(instructions: str, user_input: str, tools: list[Dict[str,
                 timeout=60.0
             )
 
-            print(f"[DEBUG] LLM response: {response}")
+            # print(f"[DEBUG] LLM response: {response.json()}")
             if response.status_code == 429:
                 print(f"[DEBUG] Rate limit exceeded. Retry {retry_count + 1}/{max_retries}.")
                 retry_count += 1
@@ -39,8 +39,8 @@ def query_orchestrator(instructions: str, user_input: str, tools: list[Dict[str,
 
             fin_resp = response.json().get("choices", [{}])[0].get("message", {})
             if fin_resp == {}:
-                print("[DEBUG] Empty response from LLM, returning FAILED")
-                return "FAILED"
+                print("[DEBUG] Empty response from LLM, returning empty JSON")
+                return {}
             return fin_resp
 
         except Exception as e:
@@ -48,8 +48,8 @@ def query_orchestrator(instructions: str, user_input: str, tools: list[Dict[str,
             retry_count += 1
             time.sleep(backoff_factor ** retry_count)
 
-    print("[DEBUG] Max retries reached. Returning FAILED")
-    return "FAILED"
+    print("[DEBUG] Max retries reached. Returning empty JSON")
+    return {}
 
 
 def query_image_processor(image_url: str, prompt: str):

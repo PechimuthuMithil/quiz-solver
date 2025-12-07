@@ -176,44 +176,88 @@ def submit_answer(email, secret, task_url, submit_url, answer):
 	# sometimes answeris coming as a JSON payload with the final answer inside it.
     # Extract only the final answer if so. But th eanswer is usally a string of JSON
     # '{"email": "21f3001995@ds.study.iitm.ac.in", "secret": "your secret", "url": "https://tds-llm-analysis.s-anand.net/demo-scrape?email=21f3001995%40ds.study.iitm.ac.in&id=34636", "answer": "56090"}'
-	try:
-		try:
-			answer_dict = eval(answer)
-			if isinstance(answer_dict, dict) and "answer" in answer_dict:
-				answer = answer_dict["answer"]
-		except:
-			pass
+    # fallback_url = "https://tds-llm-analysis.s-anand.net/submit"
+    # fallback url should be base of task but path as /submit*
+    fallback_url = "/".join(task_url.split("/")[:3]) + "/submit"
+    print(f"[DEBUG] Fallback URL for submission: {fallback_url}")
+    if answer is None or answer == "":
+        print("[DEBUG] Empty answer provided, overriding to 'No Answer'")
+        answer = "No Answer"
 
-		# task url can have query parameters etc, need to remove it
-		task_url = task_url.split('?')[0]
-		payload = {
-			"email": email,
-			"secret": secret,
-			"url": task_url,
-			"answer": answer
-		}
-		headers = {
-			"Content-Type": "application/json"
-		}
-		response = requests.post(submit_url, json=payload, headers=headers, timeout=30)
-		if response.status_code == 200:
-			print("[DEBUG] Answer submitted successfully.")
-			print("[DEBUG] Response:", response.json())
-			# check if the answer was correct
-			response_json = response.json()
-			if response_json.get("correct", False):
-				print("[DEBUG] The submitted answer is correct!")
-				return True, "", response_json.get("url", None)
-			else:
-				print("[DEBUG] The submitted answer is incorrect.")
-				print("[DEBUG] Reason:", response_json.get("reason", ""))
-				return False, response_json.get("reason", ""), response_json.get("url", None)
-		else:
-			print("[DEBUG] Failed to submit answer. Status code:", response.status_code)
-			return False, f"HTTP {response.status_code}", None
-	except Exception as e:
-		print(f"[ERROR] Exception while submitting answer: {e}")
-		return False, str(e), None
+    try:
+        try:
+            answer_dict = eval(answer)
+            if isinstance(answer_dict, dict) and "answer" in answer_dict:
+                answer = answer_dict["answer"]
+        except:
+            pass
+
+        # task url can have query parameters etc, need to remove it
+        task_url = task_url.split('?')[0]
+        payload = {
+            "email": email,
+            "secret": secret,
+            "url": task_url,
+            "answer": answer
+        }
+        headers = {
+            "Content-Type": "application/json"
+        }
+        response = requests.post(submit_url, json=payload, headers=headers, timeout=30)
+        if response.status_code == 200:
+            print("[DEBUG] Answer submitted successfully.")
+            print("[DEBUG] Response:", response.json())
+            # check if the answer was correct
+            response_json = response.json()
+            if response_json.get("correct", False):
+                print("[DEBUG] The submitted answer is correct!")
+                return True, "", response_json.get("url", None)
+            else:
+                print("[DEBUG] The submitted answer is incorrect.")
+                print("[DEBUG] Reason:", response_json.get("reason", ""))
+                return False, response_json.get("reason", ""), response_json.get("url", None)
+        else:
+            # it could be that the submit_url is wrong, so let's try one last time with a fallback url
+            print(f"[DEBUG] Nomral failed, Attempting fallback submission to {fallback_url}")
+            fallback_response = requests.post(fallback_url, json=payload, headers=headers, timeout=30)
+            if fallback_response.status_code == 200:
+                print("[DEBUG] Fallback: Answer submitted successfully.")
+                print("[DEBUG] Fallback Response:", fallback_response.json())
+                response_json = fallback_response.json()
+                if response_json.get("correct", False):
+                    print("[DEBUG] Fallback: The submitted answer is correct!")
+                    return True, "", response_json.get("url", None)
+                else:
+                    print("[DEBUG] Fallback: The submitted answer is incorrect.")
+                    print("[DEBUG] Fallback Reason:", response_json.get("reason", ""))
+                    return False, response_json.get("reason", ""), response_json.get("url", None)
+            else:
+                print("[DEBUG] Failed to submit answer. Status code:", fallback_response.status_code)
+                return False, f"HTTP {fallback_response.status_code}", None
+        
+    except Exception as e:
+        # let's try the fallback
+        print(f"[ERROR] Exception while submitting answer: {e}")
+        print(f"[DEBUG] Attempting fallback submission to {fallback_url}")
+        try:
+            fallback_response = requests.post(fallback_url, json=payload, headers=headers, timeout=30)
+            if fallback_response.status_code == 200:
+                print("[DEBUG] Fallback: Answer submitted successfully.")
+                print("[DEBUG] Fallback Response:", fallback_response.json())
+                response_json = fallback_response.json()
+                if response_json.get("correct", False):
+                    print("[DEBUG] Fallback: The submitted answer is correct!")
+                    return True, "", response_json.get("url", None)
+                else:
+                    print("[DEBUG] Fallback: The submitted answer is incorrect.")
+                    print("[DEBUG] Fallback Reason:", response_json.get("reason", ""))
+                    return False, response_json.get("reason", ""), response_json.get("url", None)
+            else:
+                print("[DEBUG] Failed to submit answer via fallback. Status code:", fallback_response.status_code)
+                return False, f"HTTP {fallback_response.status_code}", None
+        except Exception as fallback_e:
+            print(f"[ERROR] Exception while submitting answer via fallback: {fallback_e}")
+            return False, str(fallback_e), None
 
 	# [TODO] set some global variable if needed to indicate submission status
 # print("Testing submit_answer function")
@@ -229,14 +273,21 @@ def execute_python_code(requirements, code):
     pkg_dir = tempfile.mkdtemp()
 
     # 1. Install requirements using uv --target
-    if requirements:
-        subprocess.run(
-            ["uv", "pip", "install", "--target", pkg_dir] + requirements,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
+    if requirements and len(requirements) > 0 and requirements[0] != "":
+        try:
+            print(f"[DEBUG] Installing packages: {requirements} to {pkg_dir}")
+            subprocess.run(
+                ["uv", "pip", "install", "--target", pkg_dir] + requirements,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"[ERROR] Failed to install packages: {e.stderr}", file=sys.stderr)
+            shutil.rmtree(pkg_dir)
+            return "", f"Package installation error: {e.stderr}"
+        
     wrapped_code = f"""
 import sys
 import os

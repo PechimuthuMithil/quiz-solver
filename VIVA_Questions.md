@@ -62,3 +62,6 @@ Practical questions to demonstrate code knowledge
 35. If asked in a viva: explain how you would add a feature to preview deploys privately (not public gh-pages).
 
 Use these questions for quick oral practice. Prepare concrete examples from the codebase to illustrate answers during the viva.
+
+Why did I use Grok as the orchestrator and not gpt-4o-mini? Because grok 4.1 was free and had a huge context length.
+Why have so many tools and not just leverage python execution for everything? Somethings need to be reliable and python execution was for lightweight to medium execution and computations. 

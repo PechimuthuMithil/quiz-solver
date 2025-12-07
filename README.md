@@ -31,6 +31,7 @@ Run / Usage
 Testing the static preview
 - test/index.html is a minimal page that asks the user to "Describe the image".
 - The codebase contains a best-effort Playwright render check before publishing gh-pages; Playwright must be available for that check to run.
+- You can also follow the steps in `tests/tds-llm-analysis-main/README.md`
 
 Important notes / security
 - execute_python_code installs requested packages into an isolated temp target and runs user code with a timeout and restricted file writes (redirected into memory/). This is not a perfect sandbox — review before running untrusted code.

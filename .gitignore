@@ -8,3 +8,5 @@ setup.py
 important.txt
 *.egg-info
 *__init__.py
+node_modules/
+.env
