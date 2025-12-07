@@ -306,7 +306,7 @@ def solve_task_with_llm(task_url, email, secret):
                         f"\nTool result for publish_to_github_pages (id: {call['id']}):\nPublished at: {gh_pages_url}"
                     )
                 else:
-                    print("    [TOOL RESULT] Failed to publish to GitHub Pages.")
+                    print(f"    [TOOL RESULT] Failed to publish to GitHub Pages. {gh_pages_url}")
                     user_input += (
                         f"\nTool result for publish_to_github_pages (id: {call['id']}):\nFailure: {gh_pages_url}"
                     )
