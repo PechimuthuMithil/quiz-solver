@@ -2,6 +2,36 @@
 
 Small toolset to fetch/render web tasks, extract assets (audio/images/files), run bounded Python snippets, analyze media, and optionally publish visualizations to GitHub Pages.
 
+## Waking up or testing the render deployemnt
+Submit a query with invalid secret
+### On Windows
+```sh
+Invoke-RestMethod `
+  -Uri "https://quiz-solver-0j5p.onrender.com/start-solve" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body (
+    @{
+      email  = "21f3001995@ds.study.iitm.ac.in"
+      secret = "1234"
+      url    = "https://tds-llm-analysis.s-anand.net/project2"
+    } | ConvertTo-Json
+  )
+```
+
+### On Linux kernels (curl)
+```sh
+ curl -X POST "https://quiz-solver-0j5p.onrender.com/start-solve" \
+            -H "Content-Type: application/json" \
+            -i \
+            -d '{
+        "email": "21f3001995@ds.study.iitm.ac.in",
+        "secret": "1234",
+        "url": "https://tds-llm-analysis.s-anand.net/project2"
+    }'
+```
+
+
 ## Querying the render deployment 
 (The orchestrator will be xai/grok-4.1-fast)
 ### On Windows
@@ -13,20 +43,20 @@ Invoke-RestMethod `
   -Body (
     @{
       email  = "21f3001995@ds.study.iitm.ac.in"
-      secret = "6969"
+      secret = "the secret"
       url    = "the start url goes here"
     } | ConvertTo-Json
   )
 ```
 
-### On Linux (curl)
+### On Linux kernels (curl)
 ```sh
 curl -X POST "https://quiz-solver-0j5p.onrender.com/start-solve" \
       -H "Content-Type: application/json" \
       -i \
       -d '{
       "email": "21f3001995@ds.study.iitm.ac.in",
-      "secret": "6969",
+      "secret": "the secret",
       "url": "the start url goes here"
   }'
 ```
@@ -41,20 +71,20 @@ Invoke-RestMethod `
   -Body (
     @{
       email  = "21f3001995@ds.study.iitm.ac.in"
-      secret = "6969"
+      secret = "the secret"
       url    = "the start url goes here"
     } | ConvertTo-Json
   )
 ```
 
-### On Linux (curl)
+### On Linux kernels (curl)
 ```sh
 curl -X POST "http://127.0.0.1:8000/start-solve" \
       -H "Content-Type: application/json" \
       -i \
       -d '{
       "email": "21f3001995@ds.study.iitm.ac.in",
-      "secret": "6969",
+      "secret": "the secret",
       "url": "the start url goes here"
   }'
 ```
